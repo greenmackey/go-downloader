@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -75,6 +76,11 @@ L:
 		}
 	}
 
+	// ファイルを書き込み
+	fname := filepath.Base(url)
+	if err := os.WriteFile(fname, full, 0600); err != nil {
+		log.Fatal(err)
+	}
 	//　ダウンロードデータを表示
 	fmt.Println(string(full))
 }
