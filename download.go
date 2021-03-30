@@ -26,8 +26,8 @@ type partialData struct {
 }
 
 var url string
-var dch = make(chan partialData)
-var sch = make(chan int)
+var dch = make(chan partialData, numRoutines)
+var sch = make(chan int, numRoutines)
 var endch = make(chan int)
 var data = make(map[int][]byte)
 
@@ -54,9 +54,6 @@ func main() {
 	go func() {
 		wg.Wait()
 		close(sch)
-		if err := g.Wait(); err != nil {
-			log.Fatal(errors.Wrap(err, "An error occurred in go routines."))
-		}
 		close(endch)
 	}()
 
@@ -106,6 +103,10 @@ L:
 		case <-ctx.Done():
 			break L
 		}
+	}
+
+	if err := g.Wait(); err != nil {
+		log.Fatal(errors.Wrap(err, "An error occurred in go routines."))
 	}
 
 	full := merge(data, currentMax+sizePerRoutine)
