@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,12 +18,18 @@ import (
 
 const size = 100
 const div = 10
-const tout = 15
+const timeout = 15
+
+type pdata struct {
+	start int
+	body  []byte
+}
 
 var url string
-var dch = make(chan []byte)
+var dch = make(chan pdata)
 var clch = make(chan int)
 var endch = make(chan int)
+var data = make(map[int][]byte)
 
 func main() {
 	// 取得先のURLを取得
@@ -36,45 +44,74 @@ func main() {
 	// ダウンロードデータの保存先を用意
 	full := make([]byte, 0, cl+100)
 
-	// divの分だけgo routineを作成
-	g := new(errgroup.Group)
-	for i := 0; i < div; i++ {
-		g.Go(Download)
-	}
+	// コンテキスト生成
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
 
-	// すべてのgo routineが完了したことを管理
+	// error groupを作成
+	g, ctx := errgroup.WithContext(ctx)
+
+	// サブルーチンの終了をコントロール
+	var wg sync.WaitGroup
+	wg.Add(div)
 	go func() {
+		wg.Wait()
+		close(clch)
 		if err := g.Wait(); err != nil {
-			log.Fatal(err)
+			log.Fatal(errors.Wrap(err, "An error occurred in go routines."))
 		}
 		close(endch)
 	}()
 
-	// タイムアウト用のchannelを用意
-	tch := time.After(time.Duration(tout) * time.Second)
+	// divの分だけgo routineを作成
+	for i := 0; i < div; i++ {
+		g.Go(func() error {
+			for {
+				select {
+				case s, ok := <-clch:
+					if !ok {
+						return nil
+					}
+					p := pdata{start: s}
+					var err error
+					p.body, err = Send(ctx, s, s+size)
+					if err != nil {
+						return errors.Wrap(err, "Send failed.")
+					}
+					dch <- p
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		})
+	}
 
 	// 最初のinput
-	clch <- 0
+	currentMax := 0
+	for i := 0; i < div; i++ {
+		currentMax = size * i
+		clch <- currentMax
+	}
 L:
 	for {
 		select {
 		// ダウンロードデータを受信，格納済みデータサイズを送信
-		case b := <-dch:
-			full = append(full, b...)
-			if len(full) >= cl {
-				close(clch)
+		case p := <-dch:
+			data[p.start] = p.body
+			if currentMax+size > cl {
+				wg.Done()
 			} else {
-				clch <- len(full)
+				currentMax += size
+				clch <- currentMax
 			}
-		// タイムアウトを確認
-		case <-tch:
-			fmt.Println("timeout")
-			break L
-		// すべてのgo routineが完了したか確認
 		case <-endch:
+			break L
+		case <-ctx.Done():
 			break L
 		}
 	}
+
+	full = merge(data, currentMax+size)
 
 	// ファイルを書き込み
 	fname := filepath.Base(url)
@@ -85,26 +122,43 @@ L:
 	fmt.Println(string(full))
 }
 
-func Send(url string, s, e int) ([]byte, error) {
+func Send(ctx context.Context, s, e int) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewRequest failed")
 	}
 
-	r := fmt.Sprintf("bytes=%v-%v", s, e)
-	req.Header.Add("Range", r)
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "ClientDo failed.")
-	}
-	defer resp.Body.Close()
+	ch := make(chan []byte)
+	ech := make(chan error)
+	go func() {
+		r := fmt.Sprintf("bytes=%v-%v", s, e-1)
+		req.Header.Add("Range", r)
+		resp, err := client.Do(req)
+		if err != nil {
+			ech <- errors.Wrap(err, "ClientDo failed.")
+			return
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "ReadBody failed.")
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			ech <- errors.Wrap(err, "ReadBody failed.")
+			return
+		}
+
+		ch <- body
+	}()
+
+	select {
+	case b := <-ch:
+		return b, nil
+	case err := <-ech:
+		return nil, err
+	case <-ctx.Done():
+		return nil, nil
 	}
-	return body, nil
+
 }
 
 func Head(url string) (int, error) {
@@ -125,16 +179,17 @@ func Head(url string) (int, error) {
 	return cl, nil
 }
 
-func Download() error {
+func merge(m map[int][]byte, length int) []byte {
+	b := make([]byte, 0, length)
+	s := 0
+	b = append(b, m[s]...)
 	for {
-		if s, ok := <-clch; !ok {
-			return nil
+		s += size
+		if p, ok := m[s]; !ok {
+			break
 		} else {
-			body, err := Send(url, s, s+size)
-			if err != nil {
-				return errors.Wrap(err, "Send failed.")
-			}
-			dch <- body
+			b = append(b, p...)
 		}
 	}
+	return b
 }
