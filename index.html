@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio</title>
+
+    <!-- ファビコン -->
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="main.css">
+
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.2/css/all.css" integrity="sha384-vSIIfh2YWi9wW0r9iZe7RJPrKwp6bG+s9QZMoITbCckVJqGCCRhc+ccxNcdpHuYu" crossorigin="anonymous">
+
+  </head>
+  <body>
+    <header>
+      <p>
+        Hello! I am Takeshi Kawahara.
+      </p>
+      <img src="images/2021_cow.jpg" class="fv-image">
+    </header>
+
+    <nav class="container">
+      <div class="custom-row">
+        <div class="col-3">
+          <a href="#section-profile" class="btn btn-outline-primary">Profile</a>
+        </div>
+        <div class="col-3">
+          <a href="#section-works" class="btn btn-outline-primary">Works</a>
+        </div>
+        <div class="col-3">
+          <a href="#section-research" class="btn btn-outline-primary">Research</a>
+        </div>
+        <div class="col-3">
+          <a href="#section-skills" class="btn btn-outline-primary">Skills</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid">
+
+      <section class="section-1" id="section-profile">
+        <h1>Profile</h1>
+        <div class="profile-content">
+          <p>
+            はじめまして．1994年生まれの河原 健志（カワハラ タケシ）と申します．
+            現在は東京大学経済学研究科の博士課程に在籍している特別研究員
+            <a href="https://www.jsps.go.jp/j-pd/pd_gaiyo.html">DC1</a>
+            の学生です．
+            普段はゲーム理論という分野を研究しています．
+          </p>
+          <p>
+            気持ちのいい生活を助けるようなプロダクトを自分の手で具現化できるようになりたいと思い，
+            エンジニアを志望しています．
+            まだ開発の経験は浅いですが，新しい知識を吸収しつつ楽しく開発しています．
+            <a href="https://github.com/greenmackey">
+              GitHub
+            </a>
+          </p>
+        </div>
+      </section>
+
+      <section class="section-1" id="section-works">
+        <h1>Works</h1>
+
+        <section class="section-2">
+          <h2>Social Choice</h2>
+          <div class="row gy-3 pt-3">
+            <div class="col-12 col-lg-4 image-container">
+              <img src="images/social-choice-logo.svg" alt="" class="image-social-choice">
+            </div>
+            <div class="col-12 col-lg-8">
+              <p>
+                <a href="https://ja.m.wikipedia.org/wiki/%E3%83%9C%E3%83%AB%E3%83%80%E5%BE%97%E7%82%B9#%E6%8A%95%E7%A5%A8%E3%81%A8%E8%A8%88%E6%95%B0">
+                  ボルダールール
+                </a>
+                と呼ばれる投票ルールを用いた投票ができるWEBアプリケーションです．
+              </p>
+              <p>
+                アプリケーションの使い方やコードは
+                <a href="https://github.com/greenmackey/social_choice">
+                  GitHub
+                </a>
+                をご覧ください.
+              </p>
+              <p>
+                <a href="https://social-choice.com/">
+                  アプリを使ってみる
+                </a>
+              </p>
+              <p>
+                よりよい決め方を使えば，よりよくみんなの意見をまとめられるはずです．
+                今後も他の投票ルールを追加したり，新しい機能を追加したりする予定です．
+                （幹事やリーダーの割り当てなど）
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-2">
+          <h2>Portfolio Site</h2>
+          <div class="row gy-3 pt-3">
+            <div class="col-lg-4 col-12 image-container">
+              <img src="images/portfolio.png" alt="" class="image-social-choice">
+            </div>
+            <div class="col-12 col-lg-8">
+              <p>
+                こちらのポートフォリオサイトです．
+                レスポンシブデザインに対応しています．
+              </p>
+              <p>
+                GitHub Actionsを使って
+                <a href="https://takeshi-kawahara.netlify.app/">
+                  Netlify
+                </a>
+                と
+                <a href="https://greenmackey.github.io/portfolio/">
+                  GitHub Pages
+                </a>
+                にデプロイしています．
+              </p>
+              <p>
+                ソースコードは
+                <a href="https://github.com/greenmackey/portfolio">
+                  GitHub
+                </a>
+                にあります．
+                Bootstrapを（少し）使用しています．
+              </p>
+              ヘッダーの牛の画像は今年の年賀状用にiPadで描いてみたものです．
+              来年は違う干支に更新する予定です．
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="section-1" id="section-research">
+        <h1>Research</h1>
+          <section class="section-2">
+            <h2>
+              Research Site
+              <a href="https://sites.google.com/view/takeshi-kawahara/">
+                <i class="far fa-arrow-alt-circle-right"></i>
+              </a>
+            </h2>
+              研究活動に関する情報（学会発表，ティーチング・アシスタント，査読経験など）を掲載しています．
+          </section>
+
+          <section class="section-2">
+            <h2>
+              My Paper
+              <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3479897">
+                <i class="far fa-arrow-alt-circle-right"></i>
+              </a>
+            </h2>
+              単著の研究論文を海外の査読付き学会誌に投稿しています．
+              ざっくりいうと，2人のプレイヤーが繰り返し協力し合いたいが，それが難しいような状況において，chip strategyと呼ばれる方法を使えばうまく協力ができます，という論文です．
+              論文はSSRNで公開しています．
+          </section>
+
+
+      </section>
+
+      <section class="section-1" id="section-skills">
+        <h1>Skills</h1>
+        <section class="section-2">
+          <h2>Programming Languages</h2>
+          <div class="row">
+            <div class="col-6 skill-container">Ruby</div>
+            <div class="col-6 skill-container">Golang</div>
+            <div class="col-6 skill-container">Python</div>
+            <div class="col-6 skill-container">HTML</div>
+            <div class="col-6 skill-container">CSS</div>
+            <div class="col-6 skill-container">Sass</div>
+            <div class="col-6 skill-container">JavaScript</div>
+          </div>
+        </section>
+
+        <section class="section-2">
+          <h2>Framework</h2>
+          <div class="row">
+            <div class="col-6 skill-container">Ruby on Rails</div>
+            <div class="col-6 skill-container">Bootstrap</div>
+          </div>
+        </section>
+
+        <section class="section-2">
+          <h2>DB</h2>
+          <div class="row">
+            <div class="col-6 skill-container">MySQL</div>
+            <div class="col-6 skill-container">PostgreSQL</div>
+          </div>
+        </section>
+
+        <section class="section-2">
+          <h2>Miscellaneous</h2>
+          <div class="row">
+            <div class="col-6 skill-container">Git/GitHub</div>
+            <div class="col-6 skill-container">Docker</div>
+            <div class="col-6 skill-container">Heroku</div>
+            <div class="col-12 col-sm-6 skill-container">GitHub Actions</div>
+          </div>
+        </section>
+      </section>
+
+
+
+    </div>
+
+    <footer>
+    </footer>
+
+  </body>
+</html>

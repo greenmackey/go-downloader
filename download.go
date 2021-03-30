@@ -16,18 +16,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const size = 100
-const div = 10
+const sizePerRoutine = 100
+const numRoutines = 10
 const timeout = 15
 
-type pdata struct {
+type partialData struct {
 	start int
 	body  []byte
 }
 
 var url string
-var dch = make(chan pdata)
-var clch = make(chan int)
+var dch = make(chan partialData)
+var sch = make(chan int)
 var endch = make(chan int)
 var data = make(map[int][]byte)
 
@@ -41,9 +41,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// ダウンロードデータの保存先を用意
-	full := make([]byte, 0, cl+100)
-
 	// コンテキスト生成
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
@@ -53,28 +50,28 @@ func main() {
 
 	// サブルーチンの終了をコントロール
 	var wg sync.WaitGroup
-	wg.Add(div)
+	wg.Add(numRoutines)
 	go func() {
 		wg.Wait()
-		close(clch)
+		close(sch)
 		if err := g.Wait(); err != nil {
 			log.Fatal(errors.Wrap(err, "An error occurred in go routines."))
 		}
 		close(endch)
 	}()
 
-	// divの分だけgo routineを作成
-	for i := 0; i < div; i++ {
+	// numRoutinesの分だけgo routineを作成
+	for i := 0; i < numRoutines; i++ {
 		g.Go(func() error {
 			for {
 				select {
-				case s, ok := <-clch:
+				case s, ok := <-sch:
 					if !ok {
 						return nil
 					}
-					p := pdata{start: s}
+					p := partialData{start: s}
 					var err error
-					p.body, err = Send(ctx, s, s+size)
+					p.body, err = Send(ctx, s, s+sizePerRoutine)
 					if err != nil {
 						return errors.Wrap(err, "Send failed.")
 					}
@@ -88,9 +85,9 @@ func main() {
 
 	// 最初のinput
 	currentMax := 0
-	for i := 0; i < div; i++ {
-		currentMax = size * i
-		clch <- currentMax
+	for i := 0; i < numRoutines; i++ {
+		currentMax = sizePerRoutine * i
+		sch <- currentMax
 	}
 L:
 	for {
@@ -98,11 +95,11 @@ L:
 		// ダウンロードデータを受信，格納済みデータサイズを送信
 		case p := <-dch:
 			data[p.start] = p.body
-			if currentMax+size > cl {
+			if currentMax+sizePerRoutine > cl {
 				wg.Done()
 			} else {
-				currentMax += size
-				clch <- currentMax
+				currentMax += sizePerRoutine
+				sch <- currentMax
 			}
 		case <-endch:
 			break L
@@ -111,7 +108,7 @@ L:
 		}
 	}
 
-	full = merge(data, currentMax+size)
+	full := merge(data, currentMax+sizePerRoutine)
 
 	// ファイルを書き込み
 	fname := filepath.Base(url)
@@ -184,7 +181,7 @@ func merge(m map[int][]byte, length int) []byte {
 	s := 0
 	b = append(b, m[s]...)
 	for {
-		s += size
+		s += sizePerRoutine
 		if p, ok := m[s]; !ok {
 			break
 		} else {
