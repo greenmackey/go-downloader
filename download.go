@@ -26,8 +26,8 @@ type partialData struct {
 }
 
 var url string
-var dch = make(chan partialData, numRoutines)
-var sch = make(chan int, numRoutines)
+var dch = make(chan partialData)
+var sch = make(chan int)
 var endch = make(chan int)
 var data = make(map[int][]byte)
 
@@ -49,6 +49,8 @@ func main() {
 	g, ctx := errgroup.WithContext(ctx)
 
 	// サブルーチンの終了をコントロール
+	// サブルーチンの数だけwg.Done()が通ったら，終了シグナルをブロードキャストしてサブルーチンを終了する
+	// 終了シグナルをメインルーチンに送信
 	var wg sync.WaitGroup
 	wg.Add(numRoutines)
 	go func() {
@@ -70,9 +72,14 @@ func main() {
 					var err error
 					p.body, err = Send(ctx, s, s+sizePerRoutine)
 					if err != nil {
-						return errors.Wrap(err, "Send failed.")
+						return errors.Wrap(err, "Send failed")
 					}
-					dch <- p
+
+					select {
+					case dch <- p:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -89,14 +96,18 @@ func main() {
 L:
 	for {
 		select {
-		// ダウンロードデータを受信，格納済みデータサイズを送信
+		// ダウンロードデータを受信，次の読み込み位置を送信
+		// 終端まで読み込んだいたら受信した回数分wg.Done()をする
 		case p := <-dch:
 			data[p.start] = p.body
 			if currentMax+sizePerRoutine > cl {
 				wg.Done()
 			} else {
 				currentMax += sizePerRoutine
-				sch <- currentMax
+				select {
+				case sch <- currentMax:
+				case <-ctx.Done():
+				}
 			}
 		case <-endch:
 			break L
@@ -105,10 +116,13 @@ L:
 		}
 	}
 
+	// すべてのサブルーチンが完了したらunlock
+	// どこかでエラーが発生したかをチェック
 	if err := g.Wait(); err != nil {
-		log.Fatal(errors.Wrap(err, "An error occurred in go routines."))
+		log.Fatal(errors.Wrap(err, "An error occurred in go routines"))
 	}
 
+	// 受信したデータをマージする
 	full := merge(data, currentMax+sizePerRoutine)
 
 	// ファイルを書き込み
@@ -120,45 +134,30 @@ L:
 	fmt.Println(string(full))
 }
 
+// s以上e未満のrange accessを行う
 func Send(ctx context.Context, s, e int) ([]byte, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewRequest failed")
 	}
 
-	ch := make(chan []byte)
-	ech := make(chan error)
-	go func() {
-		r := fmt.Sprintf("bytes=%v-%v", s, e-1)
-		req.Header.Add("Range", r)
-		resp, err := client.Do(req)
-		if err != nil {
-			ech <- errors.Wrap(err, "ClientDo failed.")
-			return
-		}
-		defer resp.Body.Close()
+	r := fmt.Sprintf("bytes=%v-%v", s, e-1)
+	req.Header.Add("Range", r)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "ClientDo failed")
+	}
+	defer resp.Body.Close()
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			ech <- errors.Wrap(err, "ReadBody failed.")
-			return
-		}
-
-		ch <- body
-	}()
-
-	select {
-	case b := <-ch:
-		return b, nil
-	case err := <-ech:
-		return nil, err
-	case <-ctx.Done():
-		return nil, nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "ReadBody failed")
 	}
 
+	return body, nil
 }
 
+// Headリクエストを送り，Content-Lengthを取得
 func Head(url string) (int, error) {
 	resp, err := http.Head(url)
 	if err != nil {
@@ -167,16 +166,17 @@ func Head(url string) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.Header.Get("Accept-Ranges") != "bytes" {
-		return 0, errors.New("Range access failed.")
+		return 0, errors.New("Range access failed")
 	}
 
 	cl, err := strconv.Atoi(resp.Header.Get("Content-Length"))
 	if err != nil {
-		return 0, errors.Wrap(err, "strconv content-length failed.")
+		return 0, errors.Wrap(err, "strconv content-length failed")
 	}
 	return cl, nil
 }
 
+// 分割ダウンロードした[]byteをマージする
 func merge(m map[int][]byte, length int) []byte {
 	b := make([]byte, 0, length)
 	s := 0
